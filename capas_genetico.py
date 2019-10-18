@@ -2,6 +2,8 @@ import os
 import random
 from datetime import datetime
 from pprint import pprint
+from typing import List, Any
+
 import matplotlib.pyplot as plt
 import time
 import numpy as np
@@ -20,7 +22,7 @@ aislamiento = [[0, 10, 15, 25, 32, 25, 21, 21, 15, 22, 12, 54],
                [22, 18, 25, 34, 21, 22, 18, 61, 55, 2, 22, 0]]
 capas = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 num_capas = 12
-tamano_poblacion = 10
+tamano_poblacion = 1000
 
 
 # CAS0 1 Se deben utilizar todos los materiales.
@@ -28,15 +30,28 @@ def reordenar_capas() -> None:
     capas.sort()
 
 
-def crear_individuo() -> list:
+def crear_individuo_caso_a() -> list:
     random.shuffle(capas)
     return capas[:]
 
 
-def crear_poblacion() -> list:
+def crear_individuo_caso_b() -> list:
+    nuevo_individuo = []
+    while len(nuevo_individuo) != len(capas):
+        nuevo_elemento = np.random.choice(capas, 1)[0]
+        if not nuevo_individuo or nuevo_elemento != nuevo_individuo[-1]:
+            nuevo_individuo.append(nuevo_elemento)
+
+    return nuevo_individuo
+
+
+def crear_poblacion(caso: str) -> list:
     nueva_poblacion = []
     for iteracion in range(tamano_poblacion):
-        nueva_poblacion.append(crear_individuo())
+        if caso == 'A':
+            nueva_poblacion.append(crear_individuo_caso_a())
+        elif caso == 'B':
+            nueva_poblacion.append(crear_individuo_caso_b())
     reordenar_capas()  # Devolvemos las capas al orden original, por si lo necesitamos más adelante...
     return nueva_poblacion
 
@@ -67,7 +82,7 @@ def calcular_probabilidad_eleccion(individuo: list, sumatorio_fitness: int):
     return individuo_con_probabilidad[:]
 
 
-def evolucion(poblacion: list) -> list:
+def evolucion(poblacion: list, caso: str) -> list:
     # 1ª fase: Selección con ruleta
     sumatorio_fitness = 0
     for indiviuo in poblacion:
@@ -76,11 +91,7 @@ def evolucion(poblacion: list) -> list:
     poblacion_con_probabilidad_de_eleccion = [(calcular_probabilidad_eleccion(individuo, sumatorio_fitness))
                                               for individuo in poblacion]
 
-    # print("Población con probabilidad de elección:")
-    # pprint(poblacion_con_probabilidad_de_eleccion)
-    # print()
-
-    poblacion_sin_probabilidades = []
+    poblacion_sin_probabilidades: List[Any] = []
     probabilidades = []
     for individuo in poblacion_con_probabilidad_de_eleccion:
         poblacion_sin_probabilidades.append(individuo[0][1][1])
@@ -110,24 +121,37 @@ def evolucion(poblacion: list) -> list:
     hijo = ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X']
     hija = ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X']
 
-    hijo[3:9] = padre[3:9]
-    for elemento in reversed(madre):
-        if elemento not in hijo:
-            # rreplace(hijo, 'X', i, 1)
-            hijo[find_last(hijo, 'X')] = elemento
+    if caso == 'A':
+        hijo[3:9] = padre[3:9]
+        for elemento in reversed(madre):
+            if elemento not in hijo:
+                # rreplace(hijo, 'X', i, 1)
+                hijo[find_last(hijo, 'X')] = elemento
 
-    hija[3:9] = madre[3:9]
-    for elemento in reversed(padre):
-        if elemento not in hija:
-            # rreplace(hijo, 'X', i, 1)
-            hija[find_last(hija, 'X')] = elemento
+        hija[3:9] = madre[3:9]
+        for elemento in reversed(padre):
+            if elemento not in hija:
+                # rreplace(hijo, 'X', i, 1)
+                hija[find_last(hija, 'X')] = elemento
+    elif caso == 'B':
+        hijo[0:3], hijo[3:9], hijo[9:12] = padre[0:3], madre[3:9], padre[9:12]
+        if hijo[2] == hijo[3]:
+            hijo[3], hijo[4] = hijo[4], hijo[3]
+        if hijo[8] == hijo[9]:
+            hijo[9], hijo[10] = hijo[10], hijo[9]
+
+        hija[0:3], hija[3:9], hija[9:12] = madre[0:3], padre[3:9], madre[9:12]
+        if hija[2] == hija[3]:
+            hija[3], hija[4] = hija[4], hija[3]
+        if hija[8] == hija[9]:
+            hija[9], hija[10] = hija[10], hija[9]
 
     # print("Hijo: ", hijo)
     # print("Hija: ", hija)
 
     # 3ª fase Mutación por intercambio recíproco
-    mutacion(hijo)
-    mutacion(hija)
+    mutacion(hijo, caso)
+    mutacion(hija, caso)
     # print("Hijo tras mutación:", hijo)
     # print("Hija tras mutación:", hija)
     # print()
@@ -144,15 +168,35 @@ def rreplace(s, old, new, occurrence):
     return new.join(li)
 
 
-def mutacion(hijo):
+def mutacion(hijo, caso_mutacion):
     for elemento in hijo:
         probabilidad_mutacion = random.random()
         if 0.0001 <= probabilidad_mutacion <= 0.05:
             posicion_elemento = hijo.index(elemento)
             while True:
-                posicion_cambio = random.randint(0, tamano_poblacion - 1)
-                if posicion_elemento != posicion_cambio:
-                    break
+                if caso_mutacion == 'A':
+                    posicion_cambio = random.randint(0, len(capas) - 1)
+                    if posicion_elemento != posicion_cambio:
+                        break
+
+                if caso_mutacion == 'B':
+                    posicion_cambio = random.randint(0, len(capas) - 1)
+                    if posicion_elemento != posicion_cambio:
+                        if (posicion_elemento == 0 and hijo[posicion_elemento + 1] != hijo[posicion_cambio]) or \
+                                (posicion_cambio == 0 and hijo[posicion_cambio + 1] != hijo[posicion_elemento]):
+                            break
+                        elif (posicion_elemento == 11 and hijo[posicion_elemento - 1] != hijo[posicion_cambio]) or \
+                                (posicion_cambio == 11 and hijo[posicion_cambio - 1] != hijo[posicion_elemento]):
+                            break
+                        elif posicion_elemento in [0, 11] or posicion_cambio in [0, 11]:
+                            continue
+                        elif (hijo[posicion_elemento - 1] != hijo[posicion_cambio] or
+                              hijo[posicion_elemento + 1] != hijo[posicion_cambio]) or \
+                                (hijo[posicion_cambio - 1] != hijo[posicion_elemento] or
+                                 hijo[posicion_cambio + 1] != hijo[posicion_elemento]):
+                            break
+                        else:
+                            continue
             hijo[posicion_elemento] = hijo[posicion_cambio]
             hijo[posicion_cambio] = elemento
 
@@ -163,21 +207,18 @@ def find_last(lst, sought_elt):
             return len(lst) - 1 - r_idx
 
 
-def juicio_final(poblacion) -> list:
-    nueva_poblacion = evaluacion(crear_poblacion())
+def juicio_final(poblacion, caso) -> list:
+    nueva_poblacion = evaluacion(crear_poblacion(caso))
     nueva_poblacion[tamano_poblacion - 1] = poblacion[tamano_poblacion - 1]
     nueva_poblacion.sort()
     return nueva_poblacion
 
 
 if __name__ == '__main__':
-    directorio_base = './resultados_genetico/'
-    ejecucion_actual = str(datetime.now().strftime("%d_%m_%Y_%H%M%S"))
-    if not os.path.exists(directorio_base + ejecucion_actual):
-        os.makedirs(directorio_base + ejecucion_actual)
+    caso_actual = 'B'
 
     # Creamos la poblacion
-    poblacion_inicial = crear_poblacion()
+    poblacion_inicial = crear_poblacion(caso_actual)
 
     poblacion_con_evaluacion = evaluacion(poblacion_inicial)
     poblacion_inicial_con_evaluacion = poblacion_con_evaluacion[:]
@@ -189,13 +230,13 @@ if __name__ == '__main__':
     resultados_values = []
     tiempos = []
     while True:
-        poblacion_con_evaluacion = evolucion(poblacion_con_evaluacion)
+        poblacion_con_evaluacion = evolucion(poblacion_con_evaluacion, caso_actual)
         poblacion_con_evaluacion.sort()
 
         if poblacion_con_evaluacion[tamano_poblacion - 1] == ultima_mejor_evaluacion:
             num_iteraciones_misma_evaluacion += 1
             if num_iteraciones_misma_evaluacion % 1000 == 0:
-                juicio_final(poblacion_con_evaluacion)
+                juicio_final(poblacion_con_evaluacion, caso_actual)
                 print("Propuesta en iteracion {}: ".format(num_iteraciones_misma_evaluacion))
                 pprint(poblacion_con_evaluacion[tamano_poblacion - 1])
                 print()
@@ -209,7 +250,8 @@ if __name__ == '__main__':
             ultima_mejor_evaluacion = poblacion_con_evaluacion[tamano_poblacion - 1]
             num_iteraciones_misma_evaluacion = 0
 
-        if num_iteraciones_misma_evaluacion == 100000:
+        if (caso_actual == 'A' and num_iteraciones_misma_evaluacion == 20000) or \
+                (caso_actual == 'B' and num_iteraciones_misma_evaluacion == 20000):
             break
 
     print("--------------------------------------")
@@ -219,6 +261,11 @@ if __name__ == '__main__':
 
     print("Propuesta final:")
     print(poblacion_con_evaluacion[tamano_poblacion - 1])
+
+    directorio_base = './resultados_genetico/'
+    ejecucion_actual = str(datetime.now().strftime("%d_%m_%Y_%H%M%S"))
+    if not os.path.exists(directorio_base + ejecucion_actual):
+        os.makedirs(directorio_base + ejecucion_actual)
 
     plt.plot(tiempos, resultados_values)
     plt.plot(tiempos, resultados_values, 'ro')
@@ -232,5 +279,7 @@ if __name__ == '__main__':
                  xy=(max(tiempos), max(resultados_values)),
                  xytext=(max(tiempos), max(resultados_values) + 10),
                  )
-    plt.savefig('resultados', bbox_inches='tight')
+    plt.savefig(directorio_base + ejecucion_actual + "/" + ejecucion_actual, bbox_inches='tight')
     plt.show()
+
+    exit()

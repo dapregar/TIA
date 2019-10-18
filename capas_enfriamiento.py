@@ -21,6 +21,21 @@ capas = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 num_capas = 12
 
 
+def crear_individuo_caso_a() -> list:
+    random.shuffle(capas)
+    return capas[:]
+
+
+def crear_individuo_caso_b() -> list:
+    nuevo_individuo = []
+    while len(nuevo_individuo) != len(capas):
+        nuevo_elemento = np.random.choice(capas, 1)[0]
+        if not nuevo_individuo or nuevo_elemento != nuevo_individuo[-1]:
+            nuevo_individuo.append(nuevo_elemento)
+
+    return nuevo_individuo
+
+
 def calcular_fitness(individuo: list) -> int:
     resistencia = 0
     for i in range(num_capas - 1):
@@ -29,13 +44,22 @@ def calcular_fitness(individuo: list) -> int:
 
 
 if __name__ == '__main__':
+    caso = 'A'
+
     directorio_base = './resultados_enfriamiento/'
     ejecucion_actual = str(datetime.now().strftime("%d_%m_%Y_%H%M%S"))
     if not os.path.exists(directorio_base + ejecucion_actual):
         os.makedirs(directorio_base + ejecucion_actual)
     fichero = open(directorio_base + ejecucion_actual + "/" + ejecucion_actual + ".txt", "w")
 
-    solucion_actual, solucion_mejor = capas[:], capas[:]
+    capa_inicial = []
+    if caso == 'A':
+        capa_inicial = crear_individuo_caso_a()
+    elif caso == 'B':
+        capa_inicial = crear_individuo_caso_b()
+
+    solucion_actual, solucion_mejor = capa_inicial, capa_inicial
+
     iteracion = 0
     temperatura_actual = 1000
     temperatura_minima = 1
@@ -44,15 +68,30 @@ if __name__ == '__main__':
     temperaturas = []
     resultados = []
     while temperatura_actual > temperatura_minima:
-        while True:
-            pos1 = random.randint(min(capas), max(capas))
-            pos2 = random.randint(min(capas), max(capas))
-            if pos1 != pos2:
-                break
+        if caso == 'A':
+            while True:
+                pos1 = random.randint(min(capas), max(capas))
+                pos2 = random.randint(min(capas), max(capas))
+                if pos1 != pos2:
+                    break
 
-        solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
-        solucion_actual = solucion_mejor[:]
-        solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
+            solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
+            solucion_actual = solucion_mejor[:]
+            solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
+        elif caso == 'B':
+            while True:
+                pos1 = random.randint(min(capas), max(capas))
+                pos2 = random.randint(min(capas), max(capas))
+                solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
+                if pos1 != pos2 and \
+                        (pos1 == 0 or solucion_mejor[pos1] != solucion_mejor[pos1 - 1]) and \
+                        (pos1 == 11 or solucion_mejor[pos1] != solucion_mejor[pos1 + 1]) and \
+                        (pos2 == 0 or solucion_mejor[pos2] != solucion_mejor[pos2 - 1]) and \
+                        (pos2 == 11 or solucion_mejor[pos2] != solucion_mejor[pos2 + 1]):
+                    solucion_actual = solucion_mejor[:]
+                    solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
+                    break
+                solucion_mejor[pos1], solucion_mejor[pos2] = solucion_mejor[pos2], solucion_mejor[pos1]
 
         mejora = calcular_fitness(solucion_actual) - calcular_fitness(solucion_mejor)
         if mejora > 0 or e ** (mejora / temperatura_actual) > random.random():
@@ -76,28 +115,22 @@ if __name__ == '__main__':
     plt.grid(True)
     plt.xlabel("Tiempo(s)")
     plt.ylabel("Temperatura")
-    # plt.xlim(min(tiempos) - 0.25, max(tiempos) + 0.25)
-    # mejor_resultado = '{}/{}s'.format(max(resultados_values), round(max(tiempos), 2))
-    # plt.annotate(mejor_resultado,
-    #              xy=(max(tiempos), max(resultados_values)),
-    #              xytext=(max(tiempos), max(resultados_values) + 10),
-    #              )
-    # plt.savefig('resultados')
-    # plt.show()
 
     plt.subplot(122)
     plt.plot(tiempos, resultados)
     plt.grid(True)
     plt.xlabel("Tiempo(s)")
     plt.ylabel("Fitness")
-    # plt.xlim(min(tiempos) - 0.25, max(tiempos) + 0.25)
-    # mejor_resultado = '{}/{}s'.format(max(resultados_values), round(max(tiempos), 2))
-    # plt.annotate(mejor_resultado,
-    #              xy=(max(tiempos), max(resultados_values)),
-    #              xytext=(max(tiempos), max(resultados_values) + 10),
-    #              )
     z = np.polyfit(tiempos, resultados, 1)
     p = np.poly1d(z)
+    mejor_resultado = '{} {}\n{}s'.format(calcular_fitness(solucion_mejor), solucion_mejor, round(max(tiempos), 2))
+    plt.annotate(mejor_resultado,
+                 xy=(max(tiempos), max(resultados)),
+                 xytext=(max(tiempos), max(resultados) + 20),
+                 )
+    plt.suptitle(capa_inicial)
     plt.plot(tiempos, p(tiempos), "r--")
-    plt.savefig(directorio_base + ejecucion_actual + "/" + ejecucion_actual)
+    plt.savefig(directorio_base + ejecucion_actual + "/" + ejecucion_actual, bbox_inches='tight')
     plt.show()
+
+    exit()
